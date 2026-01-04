@@ -122,7 +122,7 @@
 
     <script type="module">
         // API KEY LOADED
-        let apiKey = "AIzaSyA9mFba8TdPDLU26ve1WhKhos5p_QzSkO4"; 
+        let apiKey = "AIzaSyA7ODvtNNTtoBC4Q8-Jlgf1sCGoxqsDykQ"; 
         const MODEL = "gemini-2.5-flash-preview-09-2025";
 
         const mainAction = document.getElementById('mainAction');
@@ -221,7 +221,7 @@
             const dir = item.direction || 'Neutral';
             const glow = dir === 'Bullish' ? 'card-glow-bull' : dir === 'Bearish' ? 'card-glow-bear' : 'card-glow-neutral';
             const color = dir === 'Bullish' ? 'text-emerald-400' : dir === 'Bearish' ? 'text-rose-500' : 'text-slate-400';
-            const icon = dir === 'Bullish' ? '? BUYING PRESSURE' : dir === 'Bearish' ? '? SELLING PRESSURE' : '¦ STABLE';
+            const icon = dir === 'Bullish' ? '? BUYING PRESSURE' : dir === 'Bearish' ? '? SELLING PRESSURE' : 'Â¦ STABLE';
 
             return `
                 <div class="glass rounded-[2rem] p-8 ${glow} fade-in">
@@ -344,4 +344,5 @@
         mainAction.onclick = runPipeline;
     </script>
 </body>
+
 </html>
