@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global FX Event Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+        body { background-color: #05070a; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(15, 18, 26, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .card-glow-bull { box-shadow: 0 0 30px rgba(0, 255, 157, 0.05); border-left: 5px solid #00ff9d; }
+        .card-glow-bear { box-shadow: 0 0 30px rgba(255, 70, 70, 0.05); border-left: 5px solid #ff4646; }
+        .card-glow-neutral { box-shadow: 0 0 20px rgba(255, 255, 255, 0.05); border-left: 5px solid #64748b; }
+        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-pulse-slow { animation: pulse-slow 3s infinite; }
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        select option { background-color: #0f121a; color: white; }
+        .custom-select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 1rem; }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Key Management UI (Hidden by default unless key fails) -->
+        <div id="keyManagement" class="hidden glass rounded-2xl p-4 mb-6 border border-amber-500/20 bg-amber-500/5">
+            <div class="flex flex-col md:flex-row items-center gap-4">
+                <p class="text-xs font-bold text-amber-200 uppercase tracking-wider">Update API Key:</p>
+                <input type="password" id="manualApiKey" placeholder="Paste your Gemini API Key here..." class="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 transition-all text-white">
+                <button id="saveKey" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black px-4 py-2 rounded-lg uppercase">Update</button>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+            <div>
+                <h1 class="text-2xl font-black tracking-tighter uppercase italic text-white">
+                    EVENT<span class="text-indigo-500">PRO</span> ANALYZER
+                </h1>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em]">Institutional News Synthesis</p>
+            </div>
+            
+            <div class="flex items-center gap-3 glass p-2 rounded-2xl w-full md:w-auto">
+                <select id="targetPair" class="custom-select bg-transparent border-none focus:ring-0 text-white font-bold uppercase w-full md:w-48 px-4 outline-none cursor-pointer">
+                    <optgroup label="Majors">
+                        <option value="EUR/USD" selected>EUR/USD</option>
+                        <option value="GBP/USD">GBP/USD</option>
+                        <option value="USD/JPY">USD/JPY</option>
+                        <option value="USD/CHF">USD/CHF</option>
+                        <option value="AUD/USD">AUD/USD</option>
+                        <option value="USD/CAD">USD/CAD</option>
+                        <option value="NZD/USD">NZD/USD</option>
+                    </optgroup>
+                    <optgroup label="Minors">
+                        <option value="EUR/GBP">EUR/GBP</option>
+                        <option value="EUR/JPY">EUR/JPY</option>
+                        <option value="GBP/JPY">GBP/JPY</option>
+                        <option value="AUD/JPY">AUD/JPY</option>
+                        <option value="EUR/AUD">EUR/AUD</option>
+                    </optgroup>
+                    <optgroup label="Commodities">
+                        <option value="XAU/USD">GOLD (XAU/USD)</option>
+                        <option value="XAG/USD">SILVER (XAG/USD)</option>
+                        <option value="WTI/USD">CRUDE OIL (WTI)</option>
+                    </optgroup>
+                    <optgroup label="Exotics">
+                        <option value="USD/ZAR">USD/ZAR</option>
+                        <option value="USD/MXN">USD/MXN</option>
+                        <option value="USD/TRY">USD/TRY</option>
+                    </optgroup>
+                </select>
+                <button id="mainAction" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black py-2 px-6 rounded-xl transition-all uppercase tracking-widest disabled:opacity-50 whitespace-nowrap">
+                    Scan Markets
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="glass rounded-[2rem] p-6">
+                    <h2 class="text-xs font-black uppercase text-slate-500 mb-6 tracking-widest flex items-center gap-2">
+                        <span class="w-2 h-2 bg-indigo-500 rounded-full"></span> Live Data Streams
+                    </h2>
+                    <ul class="space-y-4">
+                        <li class="flex items-center justify-between">
+                            <span class="text-sm font-semibold text-slate-300">Forex Factory</span>
+                            <span class="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded font-bold uppercase">Events</span>
+                        </li>
+                        <li class="flex items-center justify-between">
+                            <span class="text-sm font-semibold text-slate-300">FXStreet</span>
+                            <span class="text-[10px] bg-blue-500/10 text-blue-500 px-2 py-1 rounded font-bold uppercase">News</span>
+                        </li>
+                        <li class="flex items-center justify-between">
+                            <span class="text-sm font-semibold text-slate-300">Grounding Engine</span>
+                            <span class="text-[10px] bg-green-500/10 text-green-500 px-2 py-1 rounded font-bold uppercase">Verified</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div id="quickSummary" class="glass rounded-[2rem] p-8 border-t border-white/5 hidden fade-in"></div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                <div id="statusArea" class="hidden glass rounded-2xl p-4 text-center text-xs font-mono text-indigo-400 animate-pulse-slow">
+                    INITIALIZING SENSORS...
+                </div>
+
+                <div id="resultsWrapper" class="space-y-8">
+                    <div class="text-center py-20 opacity-20">
+                        <svg class="w-20 h-20 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <p class="font-bold uppercase tracking-widest text-sm text-white">Select a pair to start analysis</p>
+                    </div>
+                </div>
+
+                <div id="finalVerdict" class="hidden glass rounded-[2.5rem] p-8 border border-white/10 bg-gradient-to-br from-indigo-500/5 to-transparent fade-in"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // API KEY LOADED
+        let apiKey = "AIzaSyA9mFba8TdPDLU26ve1WhKhos5p_QzSkO4"; 
+        const MODEL = "gemini-2.5-flash-preview-09-2025";
+
+        const mainAction = document.getElementById('mainAction');
+        const targetPairInput = document.getElementById('targetPair');
+        const statusArea = document.getElementById('statusArea');
+        const resultsWrapper = document.getElementById('resultsWrapper');
+        const quickSummary = document.getElementById('quickSummary');
+        const finalVerdict = document.getElementById('finalVerdict');
+        const keyMgmtUI = document.getElementById('keyManagement');
+        const manualKeyInput = document.getElementById('manualApiKey');
+        const saveKeyBtn = document.getElementById('saveKey');
+
+        saveKeyBtn.onclick = () => {
+            const val = manualKeyInput.value.trim();
+            if (val) {
+                apiKey = val;
+                keyMgmtUI.classList.add('hidden');
+                statusArea.classList.remove('hidden');
+                statusArea.textContent = "NEW KEY SECURED.";
+                setTimeout(() => statusArea.classList.add('hidden'), 2000);
+            }
+        };
+
+        async function fetchWithRetry(url, payload, maxRetries = 5) {
+            if (!apiKey) {
+                keyMgmtUI.classList.remove('hidden');
+                throw new Error("API Key is missing.");
+            }
+            
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const errData = await response.json();
+                        throw new Error(errData.error?.message || `HTTP ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (err) {
+                    if (i === maxRetries - 1) throw err;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        async function fetchMarketData(pair) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+            const query = `Latest simple news and economic calendar events for ${pair}. What is happening with the central banks, jobs, or prices for these currencies?`;
+            const payload = {
+                contents: [{ parts: [{ text: query }] }],
+                tools: [{ "google_search": {} }]
+            };
+            const data = await fetchWithRetry(url, payload);
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "No recent high-impact data found.";
+        }
+
+        async function getAIPrediction(rawText, pair) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+            const systemPrompt = `You are an expert FX Strategist who explains things to beginners. 
+            Analyze the news for ${pair}. Use EXTREMELY SIMPLE language. 
+            No professional jargon (e.g., No "Hawkish", "QE", "Yields"). 
+            Use words like "Bank wants to raise rates", "Printing money", or "People are worried about prices".
+            
+            Provide:
+            1. points: A list of individual news items.
+               - title: Simple title.
+               - source: FXStreet or ForexFactory.
+               - direction: Bullish, Bearish, or Neutral.
+               - impact: 1-100.
+               - effect: 2 simple sentences using "Because... so..." logic.
+            2. verdict:
+               - overallDirection: Bullish, Bearish, or Neutral.
+               - summaryTitle: Simple headline.
+               - detailedAnalysis: 3-4 sentence final summary in basic English.
+            
+            Return ONLY a JSON object: { "points": [...], "verdict": { "overallDirection": "", "summaryTitle": "", "detailedAnalysis": "" } }`;
+
+            const payload = {
+                contents: [{ parts: [{ text: `News Context: ${rawText}` }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            const data = await fetchWithRetry(url, payload);
+            try {
+                return JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
+            } catch (e) { return {}; }
+        }
+
+        function createCard(item) {
+            const dir = item.direction || 'Neutral';
+            const glow = dir === 'Bullish' ? 'card-glow-bull' : dir === 'Bearish' ? 'card-glow-bear' : 'card-glow-neutral';
+            const color = dir === 'Bullish' ? 'text-emerald-400' : dir === 'Bearish' ? 'text-rose-500' : 'text-slate-400';
+            const icon = dir === 'Bullish' ? '? BUYING PRESSURE' : dir === 'Bearish' ? '? SELLING PRESSURE' : '¦ STABLE';
+
+            return `
+                <div class="glass rounded-[2rem] p-8 ${glow} fade-in">
+                    <div class="flex flex-wrap justify-between items-start gap-4 mb-6">
+                        <span class="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                            ${item.source}
+                        </span>
+                        <div class="font-black text-sm tracking-tighter ${color}">
+                            ${icon}
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-4 leading-tight">${item.title}</h3>
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 mb-6">
+                        <p class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">The Simple Explanation:</p>
+                        <p class="text-slate-200 text-sm leading-relaxed font-medium">
+                            ${item.effect}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-6">
+                        <div class="flex-grow">
+                            <div class="h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div class="h-full ${dir === 'Bullish' ? 'bg-emerald-500' : dir === 'Bearish' ? 'bg-rose-500' : 'bg-slate-500'}" 
+                                     style="width: ${item.impact}%"></div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">${item.impact}% POWER</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderVerdict(verdict, pair) {
+            const dir = verdict.overallDirection || 'Neutral';
+            const color = dir === 'Bullish' ? 'text-emerald-400' : dir === 'Bearish' ? 'text-rose-500' : 'text-indigo-400';
+            const bg = dir === 'Bullish' ? 'bg-emerald-500/10' : dir === 'Bearish' ? 'bg-rose-500/10' : 'bg-indigo-500/10';
+
+            return `
+                <div class="space-y-6">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></div>
+                        <h2 class="text-xs font-black uppercase text-indigo-400 tracking-[0.3em]">The Bottom Line</h2>
+                    </div>
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-white/5">
+                        <div class="flex-1">
+                            <h3 class="text-2xl font-black text-white leading-tight mb-2 tracking-tight">${verdict.summaryTitle}</h3>
+                            <p class="text-sm text-slate-400 font-medium">Final consensus for ${pair}</p>
+                        </div>
+                        <div class="${bg} px-8 py-4 rounded-[2rem] border border-white/5 text-center min-w-[180px]">
+                            <p class="text-[10px] font-black uppercase text-slate-500 mb-1 tracking-widest">Market Mood</p>
+                            <p class="text-3xl font-black ${color} tracking-tighter">${dir.toUpperCase()}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-indigo-500/5 p-6 rounded-[2rem] border border-white/5">
+                        <p class="text-base text-slate-200 leading-[1.8]">
+                            ${verdict.detailedAnalysis}
+                        </p>
+                    </div>
+
+                    <div class="pt-4">
+                        <p class="text-[9px] font-black text-slate-600 uppercase tracking-widest italic">
+                            Updated using live global data sources
+                        </p>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function runPipeline() {
+            const pair = targetPairInput.value.trim().toUpperCase();
+            if (!pair) return;
+
+            mainAction.disabled = true;
+            statusArea.classList.remove('hidden', 'text-rose-500');
+            statusArea.textContent = `READING THE NEWS FOR ${pair}...`;
+            resultsWrapper.innerHTML = '';
+            quickSummary.classList.add('hidden');
+            finalVerdict.classList.add('hidden');
+
+            try {
+                const rawData = await fetchMarketData(pair);
+                statusArea.textContent = `TRANSLATING INTO SIMPLE TERMS...`;
+                const result = await getAIPrediction(rawData, pair);
+
+                if (result.points && result.points.length > 0) {
+                    resultsWrapper.innerHTML = result.points.map(p => createCard(p)).join('');
+                    
+                    const bias = (result.verdict.overallDirection || "Neutral").toUpperCase();
+                    const biasColor = bias === 'BULLISH' ? 'text-emerald-400' : bias === 'BEARISH' ? 'text-rose-500' : 'text-indigo-400';
+                    quickSummary.innerHTML = `
+                        <h2 class="text-[10px] font-black uppercase text-slate-500 mb-6 tracking-widest">Simple Summary</h2>
+                        <div class="text-center">
+                            <div class="text-5xl font-black mb-2 text-white tracking-tighter">${pair}</div>
+                            <div class="py-4 px-6 bg-white/5 rounded-3xl border border-white/10 mt-6">
+                                <p class="text-[9px] font-black text-slate-500 uppercase mb-1">General Trend</p>
+                                <p class="text-2xl font-black ${biasColor}">${bias}</p>
+                            </div>
+                        </div>
+                    `;
+                    quickSummary.classList.remove('hidden');
+
+                    finalVerdict.innerHTML = renderVerdict(result.verdict, pair);
+                    finalVerdict.classList.remove('hidden');
+                } else {
+                    resultsWrapper.innerHTML = `<div class="p-20 glass rounded-3xl text-center text-slate-500 uppercase font-bold text-xs tracking-widest">No major news found right now. Check back soon.</div>`;
+                }
+                statusArea.classList.add('hidden');
+            } catch (error) {
+                statusArea.textContent = `CONNECTION ERROR: ${error.message.toUpperCase()}`;
+                statusArea.classList.add('text-rose-500');
+                if (error.message.toLowerCase().includes('api key')) {
+                    keyMgmtUI.classList.remove('hidden');
+                }
+            } finally {
+                mainAction.disabled = false;
+            }
+        }
+
+        mainAction.onclick = runPipeline;
+    </script>
+</body>
+</html>
